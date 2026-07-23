@@ -1,0 +1,15 @@
+# Secrets — never commit your API key
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Sample docs you might drop in while testing (optional — remove if you want to track them)
+*.pdf
