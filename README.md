@@ -43,10 +43,12 @@ This project grows one stage at a time. Each stage is a real AI-engineering skil
 | Stage | What you add | Skill you prove | Status |
 |-------|-------------|-----------------|--------|
 | **Day 1** | Load one doc, ask questions in the terminal | LLM + prompting | ✅ done |
-| **Week 1** | Split the doc into chunks, embed them, search by similarity | The core of RAG | ⬜ next |
-| **Week 2** | Cite the source ("this came from page 4") | Grounding / trust | ⬜ |
-| **Week 3** | A web UI: upload a file + chat box | Full-stack AI | ⬜ |
-| **Week 4** | Multiple docs, chat memory, quality evals | Production thinking | ⬜ |
+| **Day 2** | Split the document into overlapping chunks | text chunking | ✅ done |
+| **Day 3** | Embed the chunks (turn text into vectors) | embeddings | ⬜ next |
+| **Day 4** | Search: find the top chunks for a question | similarity search | ⬜ |
+| **Day 5** | Wire search into the answer (real RAG!) | retrieval | ⬜ |
+| **Day 6** | Show which chunk the answer came from | citations | ⬜ |
+| **Day 7** | Clean up + write it up | polish | ⬜ |
 
 **Why Day 1 doesn't use embeddings yet:** right now we send the whole document to the model every question. That's simple and works for small files, but it's slow and costs more as documents grow. Week 1 fixes that — instead of sending everything, we'll find just the few relevant chunks and send those. That's what "RAG" (Retrieval-Augmented Generation) means.
 
