@@ -1,2 +1,4 @@
 anthropic
 pypdf
+model2vec
+numpy

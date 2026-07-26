@@ -44,8 +44,8 @@ This project grows one stage at a time. Each stage is a real AI-engineering skil
 |-------|-------------|-----------------|--------|
 | **Day 1** | Load one doc, ask questions in the terminal | LLM + prompting | ✅ done |
 | **Day 2** | Split the document into overlapping chunks | text chunking | ✅ done |
-| **Day 3** | Embed the chunks (turn text into vectors) | embeddings | ⬜ next |
-| **Day 4** | Search: find the top chunks for a question | similarity search | ⬜ |
+| **Day 3** | Embed the chunks (turn text into vectors) | embeddings | ✅ done |
+| **Day 4** | Search: find the top chunks for a question | similarity search | ⬜ next |
 | **Day 5** | Wire search into the answer (real RAG!) | retrieval | ⬜ |
 | **Day 6** | Show which chunk the answer came from | citations | ⬜ |
 | **Day 7** | Clean up + write it up | polish | ⬜ |
