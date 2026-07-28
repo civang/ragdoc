@@ -26,11 +26,17 @@ $env:ANTHROPIC_API_KEY = "sk-ant-your-key-here"
 
 **3. Run it**
 
+The real RAG app (retrieves the best chunks, then answers):
+
 ```bash
-py ragdoc.py path/to/your/document.pdf
+py ask.py path/to/your/document.pdf
 ```
 
 Then ask questions. Type `exit` to quit.
+
+> `ragdoc.py` (Day 1) is the simple baseline — it sends the *whole* document to Claude every time. `ask.py` (Day 5) is the real deal — it searches for just the relevant chunks and sends only those. Try both to feel the difference.
+
+Explore the building blocks on their own too: `py chunk.py <file>`, `py embed.py <file>`, `py search.py <file>`.
 
 > Tip: to test cheaply while learning, change `MODEL` in `ragdoc.py` to `claude-haiku-4-5`.
 
@@ -46,8 +52,8 @@ This project grows one stage at a time. Each stage is a real AI-engineering skil
 | **Day 2** | Split the document into overlapping chunks | text chunking | ✅ done |
 | **Day 3** | Embed the chunks (turn text into vectors) | embeddings | ✅ done |
 | **Day 4** | Search: find the top chunks for a question | similarity search | ✅ done |
-| **Day 5** | Wire search into the answer (real RAG!) | retrieval | ⬜ next |
-| **Day 6** | Show which chunk the answer came from | citations | ⬜ |
+| **Day 5** | Wire search into the answer (real RAG!) | retrieval | ✅ done |
+| **Day 6** | Show which chunk the answer came from | citations | ⬜ next |
 | **Day 7** | Clean up + write it up | polish | ⬜ |
 
 **Why Day 1 doesn't use embeddings yet:** right now we send the whole document to the model every question. That's simple and works for small files, but it's slow and costs more as documents grow. Week 1 fixes that — instead of sending everything, we'll find just the few relevant chunks and send those. That's what "RAG" (Retrieval-Augmented Generation) means.
