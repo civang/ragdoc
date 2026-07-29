@@ -53,8 +53,8 @@ This project grows one stage at a time. Each stage is a real AI-engineering skil
 | **Day 3** | Embed the chunks (turn text into vectors) | embeddings | ✅ done |
 | **Day 4** | Search: find the top chunks for a question | similarity search | ✅ done |
 | **Day 5** | Wire search into the answer (real RAG!) | retrieval | ✅ done |
-| **Day 6** | Show which chunk the answer came from | citations | ⬜ next |
-| **Day 7** | Clean up + write it up | polish | ⬜ |
+| **Day 6** | Show which chunk the answer came from | citations | ✅ done |
+| **Day 7** | Clean up + write it up | polish | ⬜ next |
 
 **Why Day 1 doesn't use embeddings yet:** right now we send the whole document to the model every question. That's simple and works for small files, but it's slow and costs more as documents grow. Week 1 fixes that — instead of sending everything, we'll find just the few relevant chunks and send those. That's what "RAG" (Retrieval-Augmented Generation) means.
 

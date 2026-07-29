@@ -97,7 +97,16 @@ def main() -> None:
 
         # 2 & 3. Send only those chunks to Claude and print the grounded answer.
         reply = answer(client, question, context)
-        print(f"\nragdoc: {reply}\n")
+        print(f"\nragdoc: {reply}")
+
+        # 4. Show the receipts: the exact passages the answer was based on.
+        #    This is grounding - the user can verify the answer against the
+        #    source, and spot when the model is reaching beyond the document.
+        print("\n  Sources (retrieved passages):")
+        for i, (score, chunk) in enumerate(results, start=1):
+            preview = " ".join(chunk[:160].split())
+            print(f"    [Chunk {i} | similarity {score:.3f}] {preview}...")
+        print()
 
 
 if __name__ == "__main__":
