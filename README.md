@@ -1,70 +1,130 @@
-# ragdoc
+# ragdoc 📄🔍
 
-Chat with your documents. Ask questions about a PDF or text file and get answers grounded in its contents.
+**Chat with your documents.** Ask questions about a PDF or text file and get answers grounded in its actual contents — with the source passages shown so you can verify every answer.
 
-A learning project built one small step at a time — the kind of thing AI engineers get hired to build.
+Built from scratch in 7 small steps to learn how **RAG (Retrieval-Augmented Generation)** — the technique behind "chat with your docs" products — actually works under the hood. No frameworks hiding the magic: every piece (chunking, embeddings, semantic search, retrieval) is plain, readable Python.
+
+---
+
+## What it looks like
+
+```
+$ py ask.py handbook.pdf
+
+Building search index for: handbook.pdf
+Indexed 214 chunks. Ask away! Type 'exit' to quit.
+
+You: How many vacation days do new employees get?
+
+ragdoc: New employees receive 15 paid vacation days in their first year,
+increasing to 20 days after two years of service (Chunk 2).
+
+  Sources (retrieved passages):
+    [Chunk 2 | similarity 0.612] Full-time employees accrue 15 days of paid
+    vacation in year one. After two years of continuous service this increases...
+    [Chunk 7 | similarity 0.341] Time-off requests must be submitted at least...
+```
+
+The answer comes with **receipts** — the exact passages it was based on.
+
+---
+
+## How it works
+
+RAG solves a simple problem: language models don't know the contents of *your* documents, and you can't paste a 500-page manual into every question. So instead of sending the whole document, ragdoc finds just the few passages relevant to your question and sends those.
+
+```mermaid
+flowchart LR
+    A[Your PDF / text] --> B[Split into chunks]
+    B --> C[Embed each chunk<br/>into a vector]
+    C --> D[(Search index)]
+    Q[Your question] --> E[Embed the question]
+    E --> F{Find the most<br/>similar chunks}
+    D --> F
+    F --> G[Send top chunks<br/>+ question to Claude]
+    G --> H[Grounded answer<br/>+ cited sources]
+```
+
+1. **Chunk** — split the document into small overlapping passages (`chunk.py`)
+2. **Embed** — turn each chunk into a vector that captures its *meaning* (`embed.py`)
+3. **Search** — embed the question and find the closest chunks by cosine similarity (`search.py`)
+4. **Answer** — send only those chunks to Claude, which answers and cites them (`ask.py`)
 
 ---
 
 ## Quick start
 
-**1. Install the dependency**
-
 ```bash
+# 1. Install dependencies
 py -m pip install -r requirements.txt
-```
 
-**2. Set your Anthropic API key**
-
-Get a key at [console.anthropic.com](https://console.anthropic.com/settings/keys), then in PowerShell:
-
-```bash
+# 2. Set your Anthropic API key (get one at console.anthropic.com)
 $env:ANTHROPIC_API_KEY = "sk-ant-your-key-here"
-```
 
-(That sets it for the current terminal session. See `.env.example` for the persistent option.)
-
-**3. Run it**
-
-The real RAG app (retrieves the best chunks, then answers):
-
-```bash
+# 3. Chat with a document
 py ask.py path/to/your/document.pdf
 ```
 
-Then ask questions. Type `exit` to quit.
+Supports `.pdf`, `.txt`, and `.md`. Type `exit` to quit.
 
-> `ragdoc.py` (Day 1) is the simple baseline — it sends the *whole* document to Claude every time. `ask.py` (Day 5) is the real deal — it searches for just the relevant chunks and sends only those. Try both to feel the difference.
+> **Tip:** To test cheaply while experimenting, set `MODEL = "claude-haiku-4-5"` in `ask.py`.
 
-Explore the building blocks on their own too: `py chunk.py <file>`, `py embed.py <file>`, `py search.py <file>`.
-
-> Tip: to test cheaply while learning, change `MODEL` in `ragdoc.py` to `claude-haiku-4-5`.
+The embedding model runs **locally** (via [model2vec](https://github.com/MinishLab/model2vec)) — no second API key, and it works offline after a one-time ~30 MB download.
 
 ---
 
-## The roadmap
+## Project structure
 
-This project grows one stage at a time. Each stage is a real AI-engineering skill.
+Each file is one step of the pipeline and can be run on its own to see what it does:
 
-| Stage | What you add | Skill you prove | Status |
-|-------|-------------|-----------------|--------|
-| **Day 1** | Load one doc, ask questions in the terminal | LLM + prompting | ✅ done |
-| **Day 2** | Split the document into overlapping chunks | text chunking | ✅ done |
-| **Day 3** | Embed the chunks (turn text into vectors) | embeddings | ✅ done |
-| **Day 4** | Search: find the top chunks for a question | similarity search | ✅ done |
-| **Day 5** | Wire search into the answer (real RAG!) | retrieval | ✅ done |
-| **Day 6** | Show which chunk the answer came from | citations | ✅ done |
-| **Day 7** | Clean up + write it up | polish | ⬜ next |
+| File | What it does | Run it standalone |
+|------|-------------|-------------------|
+| `chunk.py` | Split a document into overlapping chunks | `py chunk.py <file>` |
+| `embed.py` | Turn chunks into meaning-vectors | `py embed.py <file>` |
+| `search.py` | Find the chunks most relevant to a question | `py search.py <file>` |
+| `ask.py` | **The full RAG app** — retrieve, answer, cite | `py ask.py <file>` |
+| `ragdoc.py` | Day-1 baseline: sends the *whole* doc each time | `py ragdoc.py <file>` |
 
-**Why Day 1 doesn't use embeddings yet:** right now we send the whole document to the model every question. That's simple and works for small files, but it's slow and costs more as documents grow. Week 1 fixes that — instead of sending everything, we'll find just the few relevant chunks and send those. That's what "RAG" (Retrieval-Augmented Generation) means.
+`ask.py` vs `ragdoc.py` is a nice before/after: the baseline sends the entire document every time (simple, but doesn't scale); the real app sends only what's relevant (cheap, fast, works on huge docs).
 
 ---
 
-## How Day 1 works
+## Built in 7 days, one step at a time
 
-```
-your document  ──►  sent to Claude  ──►  answer grounded in the document
-   (PDF/text)        (whole thing)         (says "not in the document" if it can't find it)
-```
+| Day | Step | Skill |
+|-----|------|-------|
+| 1 | Chat with a whole document | LLM + prompting |
+| 2 | Split documents into overlapping chunks | text chunking |
+| 3 | Embed chunks into vectors | embeddings |
+| 4 | Semantic search over chunks | similarity search |
+| 5 | Retrieve-then-answer (real RAG) | retrieval |
+| 6 | Show the source behind every answer | grounding / citations |
+| 7 | Polish, document, ship | 🎉 |
 
-The one clever bit: `cache_control` on the document tells Claude to reuse it across your questions, so you only pay full price to read it once per session.
+See the [commit history](../../commits) — each day is one focused commit.
+
+---
+
+## Concepts demonstrated
+
+- **Retrieval-Augmented Generation** end to end, with no black-box framework
+- **Text chunking** with overlap to keep ideas intact across boundaries
+- **Embeddings** and **cosine similarity** for meaning-based search
+- **Grounding & citations** so answers are verifiable, not hallucinated
+- **Prompt design** that constrains the model to answer only from provided context
+
+---
+
+## Ideas for going further
+
+- Cache the index to disk so large PDFs don't re-embed on every launch
+- Support a whole folder of documents at once
+- Swap the local embedder for a hosted one (Voyage, OpenAI) and compare quality
+- Add a small web UI (upload + chat box)
+- Add evals: a set of question/expected-answer pairs to measure accuracy
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).
