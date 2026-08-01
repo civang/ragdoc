@@ -15,6 +15,9 @@ Run it directly to search a document interactively:
     py search.py path/to/your/document.pdf
 """
 
+import hashlib
+import os
+import pickle
 import sys
 
 import numpy as np
@@ -22,16 +25,48 @@ import numpy as np
 from chunk import chunk_text, load_text
 from embed import cosine_similarity, embed_texts
 
+# Where cached indexes live. Gitignored - it's build output, not source.
+CACHE_DIR = ".ragdoc_cache"
 
-def build_index(path: str) -> tuple[list[str], np.ndarray]:
+
+def _cache_path(doc_path: str) -> str:
+    """A unique cache filename for a document, based on its absolute path."""
+    key = os.path.abspath(doc_path)
+    digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
+    return os.path.join(CACHE_DIR, f"{digest}.pkl")
+
+
+def build_index(path: str, use_cache: bool = True) -> tuple[list[str], np.ndarray]:
     """Load a document, chunk it, and embed every chunk.
 
-    The returned (chunks, vectors) pair is our tiny search index: row i of
+    The returned (chunks, vectors) pair is our search index: row i of
     `vectors` is the embedding of `chunks[i]`.
+
+    Embedding is the slow part, so we cache the result to disk. If the document
+    hasn't changed since we last indexed it, we load the cache instead of
+    re-embedding - which also skips loading the embedding model entirely.
+    The cache is invalidated automatically when the file's modified-time changes.
     """
+    cache_file = _cache_path(path)
+    mtime = os.path.getmtime(path)
+
+    if use_cache and os.path.exists(cache_file):
+        with open(cache_file, "rb") as f:
+            cached = pickle.load(f)
+        if cached.get("mtime") == mtime:
+            print("(loaded index from cache)")
+            return cached["chunks"], cached["vectors"]
+
+    # Cache miss (or file changed): build the index from scratch.
     text = load_text(path)
     chunks = chunk_text(text)
     vectors = embed_texts(chunks)
+
+    if use_cache:
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        with open(cache_file, "wb") as f:
+            pickle.dump({"mtime": mtime, "chunks": chunks, "vectors": vectors}, f)
+
     return chunks, vectors
 
 

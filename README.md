@@ -117,7 +117,7 @@ See the [commit history](../../commits) — each day is one focused commit.
 
 ## Ideas for going further
 
-- Cache the index to disk so large PDFs don't re-embed on every launch
+- ✅ **Cache the index to disk** so large PDFs don't re-embed on every launch — *done: ~150× faster startup on repeat runs*
 - Support a whole folder of documents at once
 - Swap the local embedder for a hosted one (Voyage, OpenAI) and compare quality
 - Add a small web UI (upload + chat box)

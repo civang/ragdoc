@@ -7,6 +7,9 @@ __pycache__/
 .venv/
 venv/
 
+# ragdoc's on-disk index cache (build output, not source)
+.ragdoc_cache/
+
 # OS
 .DS_Store
 Thumbs.db
