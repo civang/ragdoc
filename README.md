@@ -4,7 +4,9 @@
 
 **Chat with your documents.** Ask questions about a PDF or text file and get answers grounded in its actual contents — with the source passages shown so you can verify every answer.
 
-Built from scratch in 7 small steps to learn how **RAG (Retrieval-Augmented Generation)** — the technique behind "chat with your docs" products — actually works under the hood. No frameworks hiding the magic: every piece (chunking, embeddings, semantic search, retrieval) is plain, readable Python.
+Built from scratch to learn how **RAG (Retrieval-Augmented Generation)** — the technique behind "chat with your docs" products — actually works under the hood. No LangChain, no vector-DB service, no frameworks hiding the magic: every piece (chunking, embeddings, semantic search, retrieval, evaluation) is plain, readable Python.
+
+Works in the terminal or the browser, over a single file or a whole folder, and ships with a retrieval eval suite that runs in CI.
 
 ---
 
@@ -109,10 +111,12 @@ Each file is one step of the pipeline and can be run on its own to see what it d
 
 ---
 
-## Built in 7 days, one step at a time
+## Built one step at a time
 
-| Day | Step | Skill |
-|-----|------|-------|
+The core was built in seven focused steps, then extended:
+
+| # | Step | Skill |
+|---|------|-------|
 | 1 | Chat with a whole document | LLM + prompting |
 | 2 | Split documents into overlapping chunks | text chunking |
 | 3 | Embed chunks into vectors | embeddings |
@@ -121,7 +125,17 @@ Each file is one step of the pipeline and can be run on its own to see what it d
 | 6 | Show the source behind every answer | grounding / citations |
 | 7 | Polish, document, ship | 🎉 |
 
-See the [commit history](../../commits) — each day is one focused commit.
+**Then, beyond the core:**
+
+| Step | Skill |
+|------|-------|
+| Cache the index to disk (~150× faster restarts) | performance |
+| Index a whole folder, with per-file attribution | multi-document RAG |
+| Retrieval eval suite (Hit@1, Hit@3, MRR) | measurement |
+| CI that gates merges on retrieval quality | testing / DevOps |
+| Browser UI | full-stack |
+
+See the [commit history](../../commits) — each step is one focused commit.
 
 ---
 
