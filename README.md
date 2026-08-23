@@ -76,6 +76,15 @@ Point it at a folder and every supported file is indexed into one searchable
 collection — ask a question and ragdoc finds the right passage *and tells you
 which document it came from*.
 
+### Prefer a browser?
+
+```bash
+py web.py path/to/your/docs/
+```
+
+Then open **http://localhost:5000** — same pipeline, same cited sources, in a
+clean chat UI that adapts to light and dark mode.
+
 > **Tip:** To test cheaply while experimenting, set `MODEL = "claude-haiku-4-5"` in `ask.py`.
 
 The embedding model runs **locally** (via [model2vec](https://github.com/MinishLab/model2vec)) — no second API key, and it works offline after a one-time ~30 MB download.
@@ -94,6 +103,7 @@ Each file is one step of the pipeline and can be run on its own to see what it d
 | `ask.py` | **The full RAG app** — retrieve, answer, cite | `py ask.py <file>` |
 | `ragdoc.py` | Day-1 baseline: sends the *whole* doc each time | `py ragdoc.py <file>` |
 | `evals.py` | Measure retrieval quality (Hit@1, Hit@3, MRR) | `py evals.py` |
+| `web.py` | Browser UI for the same pipeline | `py web.py <file-or-folder>` |
 
 `ask.py` vs `ragdoc.py` is a nice before/after: the baseline sends the entire document every time (simple, but doesn't scale); the real app sends only what's relevant (cheap, fast, works on huge docs).
 
@@ -160,9 +170,11 @@ No API key needed; the evals test retrieval, not generation.
 
 - ✅ **Cache the index to disk** so large PDFs don't re-embed on every launch — *done: ~150× faster startup on repeat runs*
 - ✅ **Support a whole folder of documents at once** — *done: `py ask.py ./docs/`, with per-file source attribution*
-- Swap the local embedder for a hosted one (Voyage, OpenAI) and compare quality
-- Add a small web UI (upload + chat box)
-- Add evals: a set of question/expected-answer pairs to measure accuracy
+- ✅ **A small web UI** — *done: `py web.py ./docs/` → http://localhost:5000*
+- ✅ **Evals to measure accuracy** — *done: Hit@1 / Hit@3 / MRR, gated in CI*
+- Swap the local embedder for a hosted one (Voyage, OpenAI) and compare eval scores
+- Stream answers token-by-token in the web UI
+- Deploy it somewhere public (Render, Fly.io, a small VPS)
 
 ---
 
