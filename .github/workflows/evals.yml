@@ -1,0 +1,41 @@
+name: evals
+
+# Run the retrieval eval suite on every push and pull request.
+# The evals measure retrieval quality only, so they need no API key and cost
+# nothing to run - which is exactly why they make a good CI gate.
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  retrieval-evals:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Cache the embedding model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-potion-base-8M
+
+      - name: Run retrieval evals
+        # Exits non-zero if Hit@1 drops below the 80% gate in evals.py,
+        # which fails the build.
+        run: python evals.py

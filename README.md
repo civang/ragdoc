@@ -1,5 +1,7 @@
 # ragdoc 📄🔍
 
+[![evals](https://github.com/civang/ragdoc/actions/workflows/evals.yml/badge.svg)](https://github.com/civang/ragdoc/actions/workflows/evals.yml)
+
 **Chat with your documents.** Ask questions about a PDF or text file and get answers grounded in its actual contents — with the source passages shown so you can verify every answer.
 
 Built from scratch in 7 small steps to learn how **RAG (Retrieval-Augmented Generation)** — the technique behind "chat with your docs" products — actually works under the hood. No frameworks hiding the magic: every piece (chunking, embeddings, semantic search, retrieval) is plain, readable Python.
@@ -91,6 +93,7 @@ Each file is one step of the pipeline and can be run on its own to see what it d
 | `search.py` | Find the chunks most relevant to a question | `py search.py <file>` |
 | `ask.py` | **The full RAG app** — retrieve, answer, cite | `py ask.py <file>` |
 | `ragdoc.py` | Day-1 baseline: sends the *whole* doc each time | `py ragdoc.py <file>` |
+| `evals.py` | Measure retrieval quality (Hit@1, Hit@3, MRR) | `py evals.py` |
 
 `ask.py` vs `ragdoc.py` is a nice before/after: the baseline sends the entire document every time (simple, but doesn't scale); the real app sends only what's relevant (cheap, fast, works on huge docs).
 
@@ -112,6 +115,35 @@ See the [commit history](../../commits) — each day is one focused commit.
 
 ---
 
+## Evaluation
+
+"It seems to work" isn't a metric. `evals.py` measures whether retrieval actually
+surfaces the right document, so changes to chunk size, the embedding model, or
+`top_k` can be judged by a number instead of a vibe.
+
+```bash
+py evals.py
+```
+
+```
+RESULTS
+  Hit@1 : 100%   (correct doc ranked first)
+  Hit@3 : 100%   (correct doc in top 3)
+  MRR   : 1.000  (1.0 is perfect)
+
+  Gate: Hit@1 >= 80% ... PASS
+```
+
+The test questions deliberately share almost no keywords with their target
+documents ("How do I bake a loaf?" → `cooking.txt`), so keyword search would
+fail them and only meaning-based retrieval passes.
+
+It exits non-zero if Hit@1 drops below 80%, and **runs automatically in CI on
+every push** — so a change that quietly degrades retrieval can't slip through.
+No API key needed; the evals test retrieval, not generation.
+
+---
+
 ## Concepts demonstrated
 
 - **Retrieval-Augmented Generation** end to end, with no black-box framework
@@ -119,6 +151,8 @@ See the [commit history](../../commits) — each day is one focused commit.
 - **Embeddings** and **cosine similarity** for meaning-based search
 - **Grounding & citations** so answers are verifiable, not hallucinated
 - **Prompt design** that constrains the model to answer only from provided context
+- **Evaluation** with real retrieval metrics (Hit@1, Hit@3, MRR) and a CI regression gate
+- **Caching** to make repeat runs ~150× faster
 
 ---
 
