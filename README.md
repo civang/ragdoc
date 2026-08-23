@@ -61,11 +61,18 @@ py -m pip install -r requirements.txt
 # 2. Set your Anthropic API key (get one at console.anthropic.com)
 $env:ANTHROPIC_API_KEY = "sk-ant-your-key-here"
 
-# 3. Chat with a document
+# 3. Chat with a document...
 py ask.py path/to/your/document.pdf
+
+# ...or with a whole folder of them at once
+py ask.py path/to/your/docs/
 ```
 
 Supports `.pdf`, `.txt`, and `.md`. Type `exit` to quit.
+
+Point it at a folder and every supported file is indexed into one searchable
+collection — ask a question and ragdoc finds the right passage *and tells you
+which document it came from*.
 
 > **Tip:** To test cheaply while experimenting, set `MODEL = "claude-haiku-4-5"` in `ask.py`.
 
@@ -118,7 +125,7 @@ See the [commit history](../../commits) — each day is one focused commit.
 ## Ideas for going further
 
 - ✅ **Cache the index to disk** so large PDFs don't re-embed on every launch — *done: ~150× faster startup on repeat runs*
-- Support a whole folder of documents at once
+- ✅ **Support a whole folder of documents at once** — *done: `py ask.py ./docs/`, with per-file source attribution*
 - Swap the local embedder for a hosted one (Voyage, OpenAI) and compare quality
 - Add a small web UI (upload + chat box)
 - Add evals: a set of question/expected-answer pairs to measure accuracy

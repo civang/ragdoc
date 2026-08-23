@@ -29,6 +29,14 @@ from embed import cosine_similarity, embed_texts
 CACHE_DIR = ".ragdoc_cache"
 
 
+# Each indexed chunk is a record: {"text": <the chunk>, "source": <filename>}.
+# Carrying the source lets answers say WHICH document a passage came from,
+# which matters once we index more than one file.
+
+SUPPORTED_EXTS = {".pdf", ".txt", ".md"}
+_CACHE_VERSION = 2  # bumped when the cache format changes
+
+
 def _cache_path(doc_path: str) -> str:
     """A unique cache filename for a document, based on its absolute path."""
     key = os.path.abspath(doc_path)
@@ -36,49 +44,76 @@ def _cache_path(doc_path: str) -> str:
     return os.path.join(CACHE_DIR, f"{digest}.pkl")
 
 
-def build_index(path: str, use_cache: bool = True) -> tuple[list[str], np.ndarray]:
-    """Load a document, chunk it, and embed every chunk.
-
-    The returned (chunks, vectors) pair is our search index: row i of
-    `vectors` is the embedding of `chunks[i]`.
-
-    Embedding is the slow part, so we cache the result to disk. If the document
-    hasn't changed since we last indexed it, we load the cache instead of
-    re-embedding - which also skips loading the embedding model entirely.
-    The cache is invalidated automatically when the file's modified-time changes.
-    """
+def _index_one_file(path: str, use_cache: bool) -> tuple[list[dict], np.ndarray]:
+    """Chunk + embed a single document, with the disk cache from Day 8."""
     cache_file = _cache_path(path)
     mtime = os.path.getmtime(path)
 
     if use_cache and os.path.exists(cache_file):
         with open(cache_file, "rb") as f:
             cached = pickle.load(f)
-        if cached.get("mtime") == mtime:
-            print("(loaded index from cache)")
+        if cached.get("version") == _CACHE_VERSION and cached.get("mtime") == mtime:
+            print(f"(loaded from cache: {os.path.basename(path)})")
             return cached["chunks"], cached["vectors"]
 
-    # Cache miss (or file changed): build the index from scratch.
     text = load_text(path)
-    chunks = chunk_text(text)
-    vectors = embed_texts(chunks)
+    source = os.path.basename(path)
+    chunks = [{"text": t, "source": source} for t in chunk_text(text)]
+    vectors = embed_texts([c["text"] for c in chunks])
 
     if use_cache:
         os.makedirs(CACHE_DIR, exist_ok=True)
         with open(cache_file, "wb") as f:
-            pickle.dump({"mtime": mtime, "chunks": chunks, "vectors": vectors}, f)
+            pickle.dump(
+                {"version": _CACHE_VERSION, "mtime": mtime,
+                 "chunks": chunks, "vectors": vectors},
+                f,
+            )
 
     return chunks, vectors
 
 
+def build_index(path: str, use_cache: bool = True) -> tuple[list[dict], np.ndarray]:
+    """Build a search index from a single document OR a whole folder.
+
+    If `path` is a file, index it. If it's a folder, index every supported
+    file inside it (.pdf/.txt/.md) into ONE combined index, so a question can
+    be answered from any of the documents.
+
+    Returns (chunks, vectors): row i of `vectors` is the embedding of
+    `chunks[i]["text"]`, and `chunks[i]["source"]` names the file it came from.
+    """
+    if os.path.isdir(path):
+        files = sorted(
+            os.path.join(path, name)
+            for name in os.listdir(path)
+            if os.path.splitext(name)[1].lower() in SUPPORTED_EXTS
+        )
+        if not files:
+            raise ValueError(f"No supported documents (.pdf/.txt/.md) found in: {path}")
+        print(f"Indexing {len(files)} documents from {path}/")
+
+        all_chunks: list[dict] = []
+        all_vectors: list[np.ndarray] = []
+        for file_path in files:
+            chunks, vectors = _index_one_file(file_path, use_cache)
+            all_chunks.extend(chunks)
+            all_vectors.append(vectors)
+        return all_chunks, np.vstack(all_vectors)
+
+    return _index_one_file(path, use_cache)
+
+
 def search(
     query: str,
-    chunks: list[str],
+    chunks: list[dict],
     vectors: np.ndarray,
     top_k: int = 3,
-) -> list[tuple[float, str]]:
+) -> list[tuple[float, dict]]:
     """Return the top_k chunks most similar in meaning to the query.
 
-    Each result is (similarity_score, chunk_text), best match first.
+    Each result is (similarity_score, chunk_record), best match first, where
+    chunk_record is {"text": ..., "source": ...}.
     """
     query_vec = embed_texts([query])[0]
 
@@ -120,9 +155,10 @@ def main() -> None:
         results = search(query, chunks, vectors, top_k=3)
         print()
         for rank, (score, chunk) in enumerate(results, start=1):
-            preview = chunk[:200].replace("\n", " ")
-            print(f"  #{rank}  (similarity {score:.3f})")
-            print(f"      {preview}{'...' if len(chunk) > 200 else ''}\n")
+            text = chunk["text"]
+            preview = text[:200].replace("\n", " ")
+            print(f"  #{rank}  (similarity {score:.3f} | {chunk['source']})")
+            print(f"      {preview}{'...' if len(text) > 200 else ''}\n")
 
 
 if __name__ == "__main__":

@@ -14,7 +14,8 @@ Why this is better than Day 1:
   - Grounded: the answer is based on retrieved passages, not vague memory.
 
 Usage:
-    py ask.py path/to/your/document.pdf
+    py ask.py path/to/your/document.pdf     # one document
+    py ask.py path/to/a/folder              # every .pdf/.txt/.md inside
 
 Requires an Anthropic API key (see README.md).
 """
@@ -31,11 +32,14 @@ MAX_TOKENS = 1024
 TOP_K = 3                        # how many chunks to retrieve per question
 
 
-def build_context(results: list[tuple[float, str]]) -> str:
+def build_context(results: list[tuple[float, dict]]) -> str:
     """Format the retrieved chunks into a labeled context block for Claude."""
     parts = []
     for i, (score, chunk) in enumerate(results, start=1):
-        parts.append(f"[Chunk {i} | similarity {score:.3f}]\n{chunk}")
+        parts.append(
+            f"[Chunk {i} | from {chunk['source']} | similarity {score:.3f}]\n"
+            f"{chunk['text']}"
+        )
     return "\n\n".join(parts)
 
 
@@ -104,8 +108,8 @@ def main() -> None:
         #    source, and spot when the model is reaching beyond the document.
         print("\n  Sources (retrieved passages):")
         for i, (score, chunk) in enumerate(results, start=1):
-            preview = " ".join(chunk[:160].split())
-            print(f"    [Chunk {i} | similarity {score:.3f}] {preview}...")
+            preview = " ".join(chunk["text"][:160].split())
+            print(f"    [Chunk {i} | {chunk['source']} | similarity {score:.3f}] {preview}...")
         print()
 
 
