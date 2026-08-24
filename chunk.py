@@ -1,5 +1,5 @@
 """
-ragdoc — Day 2: split a document into chunks.
+ragdoc — split a document into chunks.
 
 Why chunk? On Day 1 we sent the whole document to Claude every time. That works
 for small files, but it gets slow and expensive as documents grow. The RAG idea
@@ -12,6 +12,7 @@ Today we just build and eyeball the chunker. Run it directly to see it work:
 """
 
 import os
+import re
 import sys
 
 
@@ -50,18 +51,91 @@ def chunk_text(text: str, chunk_size: int = 800, overlap: int = 100) -> list[str
     if not text:
         return []
 
+    # Pack whole sentences into chunks instead of slicing at a fixed character
+    # count. A chunk that starts mid-word ("...ergy needed to power") embeds
+    # poorly, because a fragment carries muddier meaning than a full thought.
+    sentences = split_sentences(text)
+
     chunks: list[str] = []
+    current: list[str] = []
+    current_len = 0
+
+    for sentence in sentences:
+        # A single sentence longer than chunk_size can't be packed - split it
+        # on character boundaries as a fallback so we never drop text.
+        if len(sentence) > chunk_size:
+            if current:
+                chunks.append(" ".join(current))
+                current, current_len = [], 0
+            chunks.extend(_hard_split(sentence, chunk_size, overlap))
+            continue
+
+        # +1 accounts for the space we join sentences with.
+        if current and current_len + len(sentence) + 1 > chunk_size:
+            chunks.append(" ".join(current))
+            # Start the next chunk with trailing sentences from this one, so a
+            # thought spanning the boundary stays intact in at least one chunk.
+            current = _tail_sentences(current, overlap)
+            current_len = sum(len(s) + 1 for s in current)
+
+        current.append(sentence)
+        current_len += len(sentence) + 1
+
+    if current:
+        chunks.append(" ".join(current))
+
+    return [c.strip() for c in chunks if c.strip()]
+
+
+def split_sentences(text: str) -> list[str]:
+    """Split text into sentences, keeping paragraph breaks as boundaries.
+
+    Deliberately simple: a sentence ends at . ! or ? followed by whitespace.
+    Good enough for prose, and it avoids pulling in a heavyweight NLP library.
+    """
+    sentences: list[str] = []
+
+    # Paragraphs are natural boundaries - never merge across a blank line.
+    for paragraph in re.split(r"\n\s*\n", text):
+        paragraph = paragraph.strip()
+        if not paragraph:
+            continue
+        # Split after sentence-ending punctuation followed by whitespace.
+        parts = re.split(r"(?<=[.!?])\s+", paragraph)
+        sentences.extend(p.strip() for p in parts if p.strip())
+
+    return sentences
+
+
+def _tail_sentences(sentences: list[str], overlap: int) -> list[str]:
+    """Return the trailing sentences that fit within `overlap` characters."""
+    if overlap <= 0:
+        return []
+
+    tail: list[str] = []
+    total = 0
+    for sentence in reversed(sentences):
+        if total + len(sentence) > overlap:
+            break
+        tail.insert(0, sentence)
+        total += len(sentence) + 1
+
+    return tail
+
+
+def _hard_split(text: str, chunk_size: int, overlap: int) -> list[str]:
+    """Fallback character-based split, for text with no sentence breaks."""
+    pieces: list[str] = []
     start = 0
-    step = chunk_size - overlap  # how far we advance each time
+    step = max(1, chunk_size - overlap)
 
     while start < len(text):
-        end = start + chunk_size
-        chunk = text[start:end].strip()
-        if chunk:
-            chunks.append(chunk)
+        piece = text[start : start + chunk_size].strip()
+        if piece:
+            pieces.append(piece)
         start += step
 
-    return chunks
+    return pieces
 
 
 def main() -> None:
