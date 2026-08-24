@@ -16,8 +16,10 @@ Requires an Anthropic API key (see README.md).
 import os
 import sys
 
+import json
+
 import anthropic
-from flask import Flask, jsonify, render_template_string, request
+from flask import Flask, Response, jsonify, render_template_string, request
 
 from ask import (
     HISTORY_TURNS,
@@ -124,6 +126,24 @@ resetBtn.addEventListener('click', () => {
   box.focus();
 });
 
+function renderSources(botEl, sources) {
+  // Show the receipts: which passages the answer came from.
+  const box = document.createElement('div');
+  box.className = 'sources';
+  box.innerHTML = '<h4>Sources</h4>';
+  sources.forEach((s, i) => {
+    const d = document.createElement('div');
+    d.className = 'src';
+    const meta = document.createElement('span');
+    meta.className = 'meta';
+    meta.textContent = `[${i + 1}] ${s.source} (${s.score.toFixed(3)})`;
+    d.appendChild(meta);
+    d.appendChild(document.createTextNode(' ' + s.preview));
+    box.appendChild(d);
+  });
+  botEl.appendChild(box);
+}
+
 function addMessage(who, cls) {
   const el = document.createElement('div');
   el.className = 'msg ' + cls;
@@ -148,38 +168,54 @@ form.addEventListener('submit', async (e) => {
   body.textContent = 'Thinking...';
 
   try {
-    const res = await fetch('/ask', {
+    const res = await fetch('/ask_stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question, history })
     });
-    const data = await res.json();
 
-    if (data.error) {
-      body.textContent = 'Error: ' + data.error;
-    } else {
-      body.textContent = data.answer;
+    // Read the Server-Sent Event stream, parsing one "event:/data:" frame at
+    // a time. Text arrives incrementally so the answer types itself out.
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let answer = '';
+    let failed = false;
 
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const frames = buffer.split('\n\n');
+      buffer = frames.pop();  // keep the trailing partial frame
+
+      for (const frame of frames) {
+        const evLine = frame.match(/^event: (.+)$/m);
+        const dataLine = frame.match(/^data: (.+)$/m);
+        if (!evLine || !dataLine) continue;
+
+        const kind = evLine[1];
+        const data = JSON.parse(dataLine[1]);
+
+        if (kind === 'sources') {
+          renderSources(botEl, data.sources);
+        } else if (kind === 'delta') {
+          if (!answer) body.textContent = '';   // clear "Thinking..."
+          answer += data.text;
+          body.textContent = answer;
+        } else if (kind === 'error') {
+          body.textContent = 'Error: ' + data.error;
+          failed = true;
+        }
+      }
+    }
+
+    if (!failed && answer) {
       // Remember this turn so follow-up questions have context.
       history.push({ role: 'user', content: question });
-      history.push({ role: 'assistant', content: data.answer });
+      history.push({ role: 'assistant', content: answer });
       history = history.slice(-6);
-
-      // Show the receipts: which passages the answer came from.
-      const box2 = document.createElement('div');
-      box2.className = 'sources';
-      box2.innerHTML = '<h4>Sources</h4>';
-      data.sources.forEach((s, i) => {
-        const d = document.createElement('div');
-        d.className = 'src';
-        const meta = document.createElement('span');
-        meta.className = 'meta';
-        meta.textContent = `[${i + 1}] ${s.source} (${s.score.toFixed(3)})`;
-        d.appendChild(meta);
-        d.appendChild(document.createTextNode(' ' + s.preview));
-        box2.appendChild(d);
-      });
-      botEl.appendChild(box2);
     }
   } catch (err) {
     body.textContent = 'Request failed: ' + err;
@@ -269,7 +305,12 @@ def ask_endpoint():
 
     answer = "".join(b.text for b in response.content if b.type == "text")
 
-    sources = [
+    return jsonify({"answer": answer, "sources": _format_sources(results)})
+
+
+def _format_sources(results: list[tuple[float, dict]]) -> list[dict]:
+    """Shape retrieved chunks for the browser: file, score, and a preview."""
+    return [
         {
             "source": chunk["source"],
             "score": float(score),
@@ -278,7 +319,63 @@ def ask_endpoint():
         for score, chunk in results
     ]
 
-    return jsonify({"answer": answer, "sources": sources})
+
+@app.route("/ask_stream", methods=["POST"])
+def ask_stream_endpoint():
+    """Same as /ask, but streams the answer token-by-token over SSE.
+
+    Retrieval happens up front (it's fast), so we can send the sources
+    immediately and then stream the answer text as Claude generates it.
+    """
+    payload = request.json or {}
+    question = payload.get("question", "").strip()
+    if not question:
+        return jsonify({"error": "No question provided."}), 400
+
+    history = _clean_history(payload.get("history", []))
+
+    results = search(
+        build_search_query(question, history),
+        INDEX["chunks"],
+        INDEX["vectors"],
+        top_k=TOP_K,
+    )
+    context = build_context(results)
+    sources = _format_sources(results)
+
+    messages = history + [
+        {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {question}"}
+    ]
+
+    def event_stream():
+        # Send sources first so the UI can render them right away.
+        yield _sse("sources", {"sources": sources})
+
+        try:
+            with CLIENT.messages.stream(
+                model=MODEL,
+                max_tokens=MAX_TOKENS,
+                system=SYSTEM_PROMPT,
+                messages=messages,
+            ) as stream:
+                for text in stream.text_stream:
+                    yield _sse("delta", {"text": text})
+        except anthropic.APIError as e:
+            yield _sse("error", {"error": str(e)})
+            return
+
+        yield _sse("done", {})
+
+    return Response(
+        event_stream(),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+def _sse(event: str, data: dict) -> str:
+    """Format one Server-Sent Event frame."""
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
 def main() -> None:
