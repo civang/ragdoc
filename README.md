@@ -1,6 +1,6 @@
 # ragdoc 📄🔍
 
-[![evals](https://github.com/civang/ragdoc/actions/workflows/evals.yml/badge.svg)](https://github.com/civang/ragdoc/actions/workflows/evals.yml)
+[![tests](https://github.com/civang/ragdoc/actions/workflows/tests.yml/badge.svg)](https://github.com/civang/ragdoc/actions/workflows/tests.yml)
 
 **Chat with your documents.** Ask questions about a PDF or text file and get answers grounded in its actual contents — with the source passages shown so you can verify every answer.
 
@@ -106,6 +106,7 @@ Each file is one step of the pipeline and can be run on its own to see what it d
 | `ragdoc.py` | Day-1 baseline: sends the *whole* doc each time | `py ragdoc.py <file>` |
 | `evals.py` | Measure retrieval quality (Hit@1, Hit@3, MRR) | `py evals.py` |
 | `web.py` | Browser UI for the same pipeline | `py web.py <file-or-folder>` |
+| `tests/` | Unit tests for chunking, embeddings, retrieval | `py -m pytest` |
 
 `ask.py` vs `ragdoc.py` is a nice before/after: the baseline sends the entire document every time (simple, but doesn't scale); the real app sends only what's relevant (cheap, fast, works on huge docs).
 
@@ -165,6 +166,20 @@ fail them and only meaning-based retrieval passes.
 It exits non-zero if Hit@1 drops below 80%, and **runs automatically in CI on
 every push** — so a change that quietly degrades retrieval can't slip through.
 No API key needed; the evals test retrieval, not generation.
+
+### Unit tests
+
+Alongside the evals, a pytest suite locks in the guarantees the pipeline
+depends on — no text is dropped when chunking, `chunk_size` is never exceeded,
+chunks start and end on sentence boundaries, and retrieval returns results in
+descending score order.
+
+```bash
+py -m pip install -r requirements-dev.txt
+py -m pytest
+```
+
+Both the unit tests and the evals run in CI on every push.
 
 ---
 
