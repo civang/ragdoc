@@ -30,6 +30,16 @@ from search import build_index, search
 MODEL = "claude-opus-4-8"        # swap to "claude-haiku-4-5" for cheaper testing
 MAX_TOKENS = 1024
 TOP_K = 3                        # how many chunks to retrieve per question
+HISTORY_TURNS = 6                # how many past messages to keep in context
+
+SYSTEM_PROMPT = (
+    "You answer questions using ONLY the provided context chunks. "
+    "If the answer is not in the context, say you couldn't find it in "
+    "the document. Be concise and cite which chunk(s) you used. "
+    "The conversation may contain follow-up questions that refer back to "
+    "earlier answers - use the conversation history to interpret them, but "
+    "still base every factual claim on the context chunks."
+)
 
 
 def build_context(results: list[tuple[float, dict]]) -> str:
@@ -43,25 +53,47 @@ def build_context(results: list[tuple[float, dict]]) -> str:
     return "\n\n".join(parts)
 
 
-def answer(client: anthropic.Anthropic, question: str, context: str) -> str:
-    """Ask Claude to answer the question using only the retrieved context."""
+def build_search_query(question: str, history: list[dict]) -> str:
+    """Turn a possibly-vague follow-up into something worth embedding.
+
+    "Where is it?" embeds to almost nothing useful on its own. By prepending
+    the previous question, the retrieval query carries the subject forward, so
+    "How tall is Everest?" -> "Where is it?" still retrieves the Everest chunk.
+
+    We only borrow the previous *question*, not the answer, to keep the query
+    focused on what the user is asking about.
+    """
+    previous_questions = [m["content"] for m in history if m["role"] == "user"]
+    if not previous_questions:
+        return question
+
+    return f"{previous_questions[-1]} {question}"
+
+
+def answer(
+    client: anthropic.Anthropic,
+    question: str,
+    context: str,
+    history: list[dict] | None = None,
+) -> str:
+    """Ask Claude to answer the question using only the retrieved context.
+
+    `history` is prior [{"role", "content"}] turns, so follow-up questions that
+    refer back to earlier answers ("what about the second one?") make sense.
+    """
+    messages = list(history or [])
+    messages.append(
+        {
+            "role": "user",
+            "content": f"Context:\n{context}\n\nQuestion: {question}",
+        }
+    )
+
     response = client.messages.create(
         model=MODEL,
         max_tokens=MAX_TOKENS,
-        system=(
-            "You answer questions using ONLY the provided context chunks. "
-            "If the answer is not in the context, say you couldn't find it in "
-            "the document. Be concise and cite which chunk(s) you used."
-        ),
-        messages=[
-            {
-                "role": "user",
-                "content": (
-                    f"Context:\n{context}\n\n"
-                    f"Question: {question}"
-                ),
-            }
-        ],
+        system=SYSTEM_PROMPT,
+        messages=messages,
     )
     return "".join(b.text for b in response.content if b.type == "text")
 
@@ -80,7 +112,13 @@ def main() -> None:
 
     print(f"\nBuilding search index for: {path}")
     chunks, vectors = build_index(path)
-    print(f"Indexed {len(chunks)} chunks. Ask away! Type 'exit' to quit.\n")
+    print(f"Indexed {len(chunks)} chunks. Ask away! Type 'exit' to quit.")
+    print("Follow-up questions work - try 'and what about...?'")
+    print("Type 'reset' to start a fresh conversation.\n")
+
+    # Conversation history, as Claude message dicts. Follow-up questions are
+    # interpreted against this, so "where is it?" knows what "it" refers to.
+    history: list[dict] = []
 
     while True:
         try:
@@ -94,14 +132,27 @@ def main() -> None:
         if question.lower() in {"exit", "quit"}:
             print("Bye!")
             break
+        if question.lower() == "reset":
+            history.clear()
+            print("\n(conversation cleared)\n")
+            continue
 
-        # 1. Retrieve the most relevant chunks.
-        results = search(question, chunks, vectors, top_k=TOP_K)
+        # 1. Retrieve, using a query that carries forward the previous question
+        #    so vague follow-ups still land on the right chunks.
+        results = search(
+            build_search_query(question, history), chunks, vectors, top_k=TOP_K
+        )
         context = build_context(results)
 
-        # 2 & 3. Send only those chunks to Claude and print the grounded answer.
-        reply = answer(client, question, context)
+        # 2 & 3. Send those chunks plus the conversation so far to Claude.
+        reply = answer(client, question, context, history)
         print(f"\nragdoc: {reply}")
+
+        # Remember this turn. We store the bare question (not the context) so
+        # history stays small - fresh chunks are retrieved for every turn.
+        history.append({"role": "user", "content": question})
+        history.append({"role": "assistant", "content": reply})
+        del history[:-HISTORY_TURNS]  # keep only the most recent turns
 
         # 4. Show the receipts: the exact passages the answer was based on.
         #    This is grounding - the user can verify the answer against the

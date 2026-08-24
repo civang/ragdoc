@@ -19,7 +19,15 @@ import sys
 import anthropic
 from flask import Flask, jsonify, render_template_string, request
 
-from ask import MAX_TOKENS, MODEL, TOP_K, build_context
+from ask import (
+    HISTORY_TURNS,
+    MAX_TOKENS,
+    MODEL,
+    SYSTEM_PROMPT,
+    TOP_K,
+    build_context,
+    build_search_query,
+)
 from search import build_index, search
 
 app = Flask(__name__)
@@ -79,6 +87,9 @@ PAGE = """
     border: none; border-radius: 8px; background: var(--accent); color: #fff;
   }
   button:disabled { opacity: .5; cursor: not-allowed; }
+  button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  button.ghost:hover { color: var(--fg); }
+  .hint { color: var(--muted); font-size: .8rem; margin: .6rem 0 0; }
 </style>
 </head>
 <body>
@@ -91,7 +102,9 @@ PAGE = """
   <form id="f">
     <input id="q" autocomplete="off" placeholder="Ask a question about the document..." autofocus>
     <button id="go" type="submit">Ask</button>
+    <button id="reset" type="button" class="ghost" title="Start a new conversation">Reset</button>
   </form>
+  <p class="hint">Follow-up questions work &mdash; try asking &ldquo;and where is it?&rdquo; after the first answer.</p>
 </div>
 
 <script>
@@ -99,6 +112,17 @@ const log = document.getElementById('log');
 const form = document.getElementById('f');
 const box = document.getElementById('q');
 const go = document.getElementById('go');
+const resetBtn = document.getElementById('reset');
+
+// The conversation lives in the browser and is sent with each request, so the
+// server stays stateless and two tabs don't share a history.
+let history = [];
+
+resetBtn.addEventListener('click', () => {
+  history = [];
+  log.innerHTML = '';
+  box.focus();
+});
 
 function addMessage(who, cls) {
   const el = document.createElement('div');
@@ -127,7 +151,7 @@ form.addEventListener('submit', async (e) => {
     const res = await fetch('/ask', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question })
+      body: JSON.stringify({ question, history })
     });
     const data = await res.json();
 
@@ -135,6 +159,11 @@ form.addEventListener('submit', async (e) => {
       body.textContent = 'Error: ' + data.error;
     } else {
       body.textContent = data.answer;
+
+      // Remember this turn so follow-up questions have context.
+      history.push({ role: 'user', content: question });
+      history.push({ role: 'assistant', content: data.answer });
+      history = history.slice(-6);
 
       // Show the receipts: which passages the answer came from.
       const box2 = document.createElement('div');
@@ -173,28 +202,67 @@ def home():
     )
 
 
+def _clean_history(raw) -> list[dict]:
+    """Validate conversation history coming from the browser.
+
+    The client supplies this, so it is untrusted input: keep only well-formed
+    user/assistant text turns, and cap the length so a crafted request can't
+    blow up the prompt. The system prompt is set server-side and is never
+    taken from the client.
+    """
+    if not isinstance(raw, list):
+        return []
+
+    cleaned: list[dict] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        role = item.get("role")
+        content = item.get("content")
+        if role in ("user", "assistant") and isinstance(content, str) and content.strip():
+            cleaned.append({"role": role, "content": content[:4000]})
+
+    # Keep only the most recent turns, and make sure history starts with a
+    # user turn - the API rejects a leading assistant message.
+    cleaned = cleaned[-HISTORY_TURNS:]
+    while cleaned and cleaned[0]["role"] != "user":
+        cleaned.pop(0)
+
+    return cleaned
+
+
 @app.route("/ask", methods=["POST"])
 def ask_endpoint():
     """Retrieve the best chunks, ask Claude, return the answer plus sources."""
-    question = (request.json or {}).get("question", "").strip()
+    payload = request.json or {}
+    question = payload.get("question", "").strip()
     if not question:
         return jsonify({"error": "No question provided."}), 400
 
-    results = search(question, INDEX["chunks"], INDEX["vectors"], top_k=TOP_K)
+    # The browser holds the conversation and sends it back each turn, so the
+    # server stays stateless and multiple tabs don't share a history.
+    history = _clean_history(payload.get("history", []))
+
+    # Carry the previous question forward so vague follow-ups still retrieve
+    # the right chunks ("where is it?" -> "how tall is Everest? where is it?").
+    results = search(
+        build_search_query(question, history),
+        INDEX["chunks"],
+        INDEX["vectors"],
+        top_k=TOP_K,
+    )
     context = build_context(results)
+
+    messages = history + [
+        {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {question}"}
+    ]
 
     try:
         response = CLIENT.messages.create(
             model=MODEL,
             max_tokens=MAX_TOKENS,
-            system=(
-                "You answer questions using ONLY the provided context chunks. "
-                "If the answer is not in the context, say you couldn't find it "
-                "in the document. Be concise and cite which chunk(s) you used."
-            ),
-            messages=[
-                {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {question}"}
-            ],
+            system=SYSTEM_PROMPT,
+            messages=messages,
         )
     except anthropic.APIError as e:
         return jsonify({"error": str(e)}), 502
