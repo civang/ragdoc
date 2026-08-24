@@ -1,12 +1,13 @@
 """
 ragdoc — split a document into chunks.
 
-Why chunk? On Day 1 we sent the whole document to Claude every time. That works
-for small files, but it gets slow and expensive as documents grow. The RAG idea
-is: break the document into small pieces ("chunks"), and later (Week 1) only send
-the few pieces relevant to each question.
+Why chunk? Sending a whole document to the model works for small files, but it
+gets slow and expensive as documents grow. The RAG idea is: break the document
+into small pieces ("chunks"), then send only the few pieces relevant to each
+question.
 
-Today we just build and eyeball the chunker. Run it directly to see it work:
+Chunks are split on sentence boundaries, because a fragment that starts mid-word
+embeds worse than a complete thought. Run it directly to inspect the output:
 
     py chunk.py path/to/your/document.pdf
 """

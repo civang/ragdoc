@@ -1,10 +1,10 @@
 """
-ragdoc — Day 3: turn chunks into embeddings (vectors).
+ragdoc — turn chunks into embeddings (vectors).
 
 An *embedding* is a list of numbers that captures the *meaning* of a piece of
 text. Two texts about the same topic get vectors that point in a similar
-direction, even if they share no words. That's what lets us later (Day 4)
-"search by meaning" instead of by exact keywords.
+direction, even if they share no words. That's what lets us "search by meaning"
+instead of by exact keywords.
 
 We use a small local model (model2vec) so there's no second API key and it runs
 offline after the first download.
@@ -91,7 +91,7 @@ def main() -> None:
     print(f"  cat/mat  vs  kitten/rug   : {cosine_similarity(a, b):.3f}  (should be high)")
     print(f"  cat/mat  vs  revenue       : {cosine_similarity(a, c):.3f}  (should be low)")
     print("\nNotice: 'cat' and 'kitten' share NO words, yet their vectors are close.")
-    print("That's meaning-based similarity - the engine behind Day 4's search.")
+    print("That's meaning-based similarity - the engine behind search.py.")
 
 
 if __name__ == "__main__":

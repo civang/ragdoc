@@ -1,5 +1,5 @@
 """
-ragdoc — Day 4: search chunks by meaning.
+ragdoc — search chunks by meaning.
 
 Now we connect the pieces. Given a question, we:
   1. embed the question into a vector (same model as the chunks),
@@ -7,8 +7,8 @@ Now we connect the pieces. Given a question, we:
   3. return the top few chunks - the parts of the document most likely to
      contain the answer.
 
-This is the "Retrieval" in Retrieval-Augmented Generation. Tomorrow (Day 5) we
-hand these top chunks to Claude to write the actual answer.
+This is the "Retrieval" in Retrieval-Augmented Generation. ask.py then hands
+these top chunks to Claude to write the actual answer.
 
 Run it directly to search a document interactively:
 
@@ -45,7 +45,7 @@ def _cache_path(doc_path: str) -> str:
 
 
 def _index_one_file(path: str, use_cache: bool) -> tuple[list[dict], np.ndarray]:
-    """Chunk + embed a single document, with the disk cache from Day 8."""
+    """Chunk + embed a single document, reusing the on-disk cache when possible."""
     cache_file = _cache_path(path)
     mtime = os.path.getmtime(path)
 

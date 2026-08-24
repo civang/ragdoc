@@ -1,14 +1,14 @@
 """
-ragdoc — Day 5: real RAG (Retrieval-Augmented Generation).
+ragdoc — the full RAG app (Retrieval-Augmented Generation).
 
 This is the whole project coming together. Instead of sending the entire
-document to Claude (like Day 1's ragdoc.py does), we now:
+document to Claude (like the ragdoc.py baseline does), we:
 
   1. search() the document for the chunks most relevant to the question,
   2. send ONLY those chunks to Claude as context,
   3. ask Claude to answer using just that context.
 
-Why this is better than Day 1:
+Why this beats sending the whole document:
   - Cheaper & faster: we send a few small chunks, not the whole document.
   - Scales: works on a 500-page manual, where sending everything is impossible.
   - Grounded: the answer is based on retrieved passages, not vague memory.

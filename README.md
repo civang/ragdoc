@@ -24,12 +24,21 @@ ragdoc: New employees receive 15 paid vacation days in their first year,
 increasing to 20 days after two years of service (Chunk 2).
 
   Sources (retrieved passages):
-    [Chunk 2 | similarity 0.612] Full-time employees accrue 15 days of paid
-    vacation in year one. After two years of continuous service this increases...
-    [Chunk 7 | similarity 0.341] Time-off requests must be submitted at least...
+    [Chunk 2 | handbook.pdf | similarity 0.612] Full-time employees accrue 15 days
+    of paid vacation in year one. After two years of service this increases...
+    [Chunk 7 | handbook.pdf | similarity 0.341] Time-off requests must be...
+
+You: and how do I request them?
+
+ragdoc: Requests go through the HR portal at least two weeks in advance
+and need manager approval (Chunk 7).
 ```
 
-The answer comes with **receipts** — the exact passages it was based on.
+Two things to notice:
+
+- Every answer comes with **receipts** — the exact passages it was based on.
+- The follow-up **"and how do I request them?"** works. It has no subject of its
+  own, but the conversation carries it forward.
 
 ---
 
@@ -49,10 +58,20 @@ flowchart LR
     G --> H[Grounded answer<br/>+ cited sources]
 ```
 
-1. **Chunk** — split the document into small overlapping passages (`chunk.py`)
+1. **Chunk** — split the document into overlapping passages, on sentence boundaries (`chunk.py`)
 2. **Embed** — turn each chunk into a vector that captures its *meaning* (`embed.py`)
 3. **Search** — embed the question and find the closest chunks by cosine similarity (`search.py`)
 4. **Answer** — send only those chunks to Claude, which answers and cites them (`ask.py`)
+
+### Follow-up questions
+
+A question like *"and where is it?"* carries no subject, so embedding it alone
+retrieves noise. ragdoc prepends the previous question before embedding, which
+carries the subject forward. On a test corpus that took *"Where is it?"* from
+**0.224 → 0.705** similarity against the correct chunk.
+
+The conversation is also passed to Claude, so the model can resolve references
+to earlier answers. History is capped to recent turns to bound prompt size.
 
 ---
 
@@ -85,7 +104,9 @@ py web.py path/to/your/docs/
 ```
 
 Then open **http://localhost:5000** — same pipeline, same cited sources, in a
-clean chat UI that adapts to light and dark mode.
+clean chat UI that adapts to light and dark mode. Answers **stream in
+token-by-token**, and the sources appear immediately (retrieval finishes long
+before the model does).
 
 > **Tip:** To test cheaply while experimenting, set `MODEL = "claude-haiku-4-5"` in `ask.py`.
 
@@ -135,6 +156,10 @@ The core was built in seven focused steps, then extended:
 | Retrieval eval suite (Hit@1, Hit@3, MRR) | measurement |
 | CI that gates merges on retrieval quality | testing / DevOps |
 | Browser UI | full-stack |
+| Sentence-aware chunking | retrieval quality |
+| pytest suite (31 tests) run in CI | testing |
+| Conversational follow-up questions | multi-turn RAG |
+| Token-by-token streaming over SSE | real-time UX |
 
 See the [commit history](../../commits) — each step is one focused commit.
 
@@ -192,6 +217,8 @@ Both the unit tests and the evals run in CI on every push.
 - **Prompt design** that constrains the model to answer only from provided context
 - **Evaluation** with real retrieval metrics (Hit@1, Hit@3, MRR) and a CI regression gate
 - **Caching** to make repeat runs ~150× faster
+- **Multi-turn conversation** with history-aware retrieval for follow-up questions
+- **Streaming** over Server-Sent Events, with untrusted client input validated server-side
 
 ---
 
@@ -201,8 +228,11 @@ Both the unit tests and the evals run in CI on every push.
 - ✅ **Support a whole folder of documents at once** — *done: `py ask.py ./docs/`, with per-file source attribution*
 - ✅ **A small web UI** — *done: `py web.py ./docs/` → http://localhost:5000*
 - ✅ **Evals to measure accuracy** — *done: Hit@1 / Hit@3 / MRR, gated in CI*
+- ✅ **Stream answers token-by-token in the web UI** — *done: SSE, sources render first*
+- ✅ **Conversational follow-up questions** — *done: history-aware retrieval + generation*
+- ✅ **Sentence-aware chunking** — *done: no more mid-word slicing*
 - Swap the local embedder for a hosted one (Voyage, OpenAI) and compare eval scores
-- Stream answers token-by-token in the web UI
+- Rerank: retrieve 20 chunks, then re-score them with a cross-encoder
 - Deploy it somewhere public (Render, Fly.io, a small VPS)
 
 ---

@@ -1,9 +1,10 @@
 """
-ragdoc — Day 1: chat with a document.
+ragdoc — baseline: chat with a document (no retrieval).
 
 Load a .txt, .md, or .pdf file and ask Claude questions about it in a loop.
 This version sends the whole document to the model each turn (no embeddings yet
-— that arrives in Week 1). It's the simplest thing that actually works.
+— see ask.py for that). Kept as the simplest thing that actually works, and
+as a before/after contrast with the real RAG pipeline.
 
 Usage:
     py ragdoc.py path/to/your/document.pdf
