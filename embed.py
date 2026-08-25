@@ -50,6 +50,13 @@ def get_model():
 def embed_texts(texts: list[str]) -> np.ndarray:
     """Turn a list of texts into a matrix of vectors (one row per text)."""
     model = get_model()
+
+    # An empty list is a legitimate input - an empty document produces no
+    # chunks. model.encode([]) raises, so return a correctly shaped empty
+    # matrix instead, which callers can still stack and index against.
+    if not texts:
+        return np.empty((0, model.dim), dtype=np.float32)
+
     return model.encode(texts)
 
 

@@ -55,6 +55,25 @@ def test_embed_returns_one_row_per_text():
     assert vectors.shape[0] == 3
 
 
+def test_embed_handles_empty_list():
+    """An empty document produces no chunks, so this input is legitimate.
+
+    Regression test: model.encode([]) raises, which crashed folder indexing
+    whenever any file in the folder was empty.
+    """
+    vectors = embed_texts([])
+
+    assert vectors.shape[0] == 0
+    # Still 2-D with the right width, so np.vstack against real vectors works.
+    assert vectors.ndim == 2
+    assert vectors.shape[1] == embed_texts(["probe"]).shape[1]
+
+
+def test_empty_vectors_can_be_stacked_with_real_ones():
+    stacked = np.vstack([embed_texts([]), embed_texts(["one", "two"])])
+    assert stacked.shape[0] == 2
+
+
 def test_embedding_is_deterministic():
     first = embed_texts(["stable input"])[0]
     second = embed_texts(["stable input"])[0]
