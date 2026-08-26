@@ -34,7 +34,7 @@ CACHE_DIR = ".ragdoc_cache"
 # which matters once we index more than one file.
 
 SUPPORTED_EXTS = {".pdf", ".txt", ".md"}
-_CACHE_VERSION = 2  # bumped when the cache format changes
+_CACHE_VERSION = 3  # bumped when the cache format changes
 
 
 def _cache_path(doc_path: str) -> str:
@@ -44,20 +44,31 @@ def _cache_path(doc_path: str) -> str:
     return os.path.join(CACHE_DIR, f"{digest}.pkl")
 
 
-def _index_one_file(path: str, use_cache: bool) -> tuple[list[dict], np.ndarray]:
-    """Chunk + embed a single document, reusing the on-disk cache when possible."""
+def _index_one_file(
+    path: str, use_cache: bool, source_name: str | None = None
+) -> tuple[list[dict], np.ndarray]:
+    """Chunk + embed a single document, reusing the on-disk cache when possible.
+
+    `source_name` is the label shown in answers. When indexing a folder it is
+    the path relative to that folder, so nested files with the same basename
+    (a/notes.txt vs b/notes.txt) stay distinguishable.
+    """
+    source = source_name or os.path.basename(path)
     cache_file = _cache_path(path)
     mtime = os.path.getmtime(path)
 
     if use_cache and os.path.exists(cache_file):
         with open(cache_file, "rb") as f:
             cached = pickle.load(f)
-        if cached.get("version") == _CACHE_VERSION and cached.get("mtime") == mtime:
-            print(f"(loaded from cache: {os.path.basename(path)})")
+        if (
+            cached.get("version") == _CACHE_VERSION
+            and cached.get("mtime") == mtime
+            and cached.get("source") == source
+        ):
+            print(f"(loaded from cache: {source})")
             return cached["chunks"], cached["vectors"]
 
     text = load_text(path)
-    source = os.path.basename(path)
     chunks = [{"text": t, "source": source} for t in chunk_text(text)]
     vectors = embed_texts([c["text"] for c in chunks])
 
@@ -65,7 +76,7 @@ def _index_one_file(path: str, use_cache: bool) -> tuple[list[dict], np.ndarray]
         os.makedirs(CACHE_DIR, exist_ok=True)
         with open(cache_file, "wb") as f:
             pickle.dump(
-                {"version": _CACHE_VERSION, "mtime": mtime,
+                {"version": _CACHE_VERSION, "mtime": mtime, "source": source,
                  "chunks": chunks, "vectors": vectors},
                 f,
             )
@@ -84,24 +95,54 @@ def build_index(path: str, use_cache: bool = True) -> tuple[list[dict], np.ndarr
     `chunks[i]["text"]`, and `chunks[i]["source"]` names the file it came from.
     """
     if os.path.isdir(path):
-        files = sorted(
-            os.path.join(path, name)
-            for name in os.listdir(path)
-            if os.path.splitext(name)[1].lower() in SUPPORTED_EXTS
-        )
+        files = _find_documents(path)
         if not files:
             raise ValueError(f"No supported documents (.pdf/.txt/.md) found in: {path}")
         print(f"Indexing {len(files)} documents from {path}/")
 
         all_chunks: list[dict] = []
         all_vectors: list[np.ndarray] = []
+        skipped: list[str] = []
+
         for file_path in files:
-            chunks, vectors = _index_one_file(file_path, use_cache)
+            # Label nested files by their path relative to the folder, so
+            # a/notes.txt and b/notes.txt don't both show up as "notes.txt".
+            label = os.path.relpath(file_path, path).replace(os.sep, "/")
+
+            # One unreadable file shouldn't take down the whole index. Report
+            # it and carry on with the rest.
+            try:
+                chunks, vectors = _index_one_file(file_path, use_cache, label)
+            except Exception as e:
+                skipped.append(f"{label} ({type(e).__name__})")
+                continue
             all_chunks.extend(chunks)
             all_vectors.append(vectors)
+
+        if skipped:
+            print(f"  skipped {len(skipped)} unreadable file(s): {', '.join(skipped)}")
+        if not all_chunks:
+            raise ValueError(f"No readable content found in: {path}")
+
         return all_chunks, np.vstack(all_vectors)
 
     return _index_one_file(path, use_cache)
+
+
+def _find_documents(folder: str) -> list[str]:
+    """Every supported document under `folder`, including subdirectories.
+
+    Pointing at a docs/ tree should index the whole tree - silently ignoring
+    nested files gives partial answers with no indication anything was missed.
+    """
+    found: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(folder):
+        # Skip hidden and cache directories (.git, .ragdoc_cache, ...).
+        dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+        for name in filenames:
+            if os.path.splitext(name)[1].lower() in SUPPORTED_EXTS:
+                found.append(os.path.join(dirpath, name))
+    return sorted(found)
 
 
 def search(

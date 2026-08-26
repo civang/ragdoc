@@ -31,8 +31,14 @@ def load_text(path: str) -> str:
         # Join the text of every page with blank lines between them.
         return "\n\n".join((page.extract_text() or "") for page in reader.pages)
 
-    with open(path, "r", encoding="utf-8") as f:
-        return f.read()
+    # Real-world folders contain files saved in older encodings. Try UTF-8
+    # first, then fall back to latin-1, which maps every byte to a character
+    # and so never raises. Better to index slightly mangled text than to fail.
+    raw = open(path, "rb").read()
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("latin-1")
 
 
 def chunk_text(text: str, chunk_size: int = 800, overlap: int = 100) -> list[str]:
