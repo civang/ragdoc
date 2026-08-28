@@ -125,7 +125,8 @@ Each file is one step of the pipeline and can be run on its own to see what it d
 | `search.py` | Find the chunks most relevant to a question | `py search.py <file>` |
 | `ask.py` | **The full RAG app** — retrieve, answer, cite | `py ask.py <file>` |
 | `ragdoc.py` | Day-1 baseline: sends the *whole* doc each time | `py ragdoc.py <file>` |
-| `evals.py` | Measure retrieval quality (Hit@1, Hit@3, MRR) | `py evals.py` |
+| `evals.py` | Measure retrieval quality (answer recall, Hit@1, MRR) | `py evals.py` |
+| `sweep.py` | Sweep chunk size / overlap / top_k against the evals | `py sweep.py` |
 | `web.py` | Browser UI for the same pipeline | `py web.py <file-or-folder>` |
 | `tests/` | Unit tests for chunking, embeddings, retrieval | `py -m pytest` |
 
@@ -153,13 +154,14 @@ The core was built in seven focused steps, then extended:
 |------|-------|
 | Cache the index to disk (~150× faster restarts) | performance |
 | Index a whole folder, with per-file attribution | multi-document RAG |
-| Retrieval eval suite (Hit@1, Hit@3, MRR) | measurement |
+| Retrieval eval suite (answer recall, Hit@1, MRR) | measurement |
 | CI that gates merges on retrieval quality | testing / DevOps |
 | Browser UI | full-stack |
 | Sentence-aware chunking | retrieval quality |
-| pytest suite (31 tests) run in CI | testing |
+| pytest suite (42 tests) run in CI | testing |
 | Conversational follow-up questions | multi-turn RAG |
 | Token-by-token streaming over SSE | real-time UX |
+| Parameter sweep to tune chunking from evidence | eval-driven development |
 
 See the [commit history](../../commits) — each step is one focused commit.
 
@@ -167,30 +169,75 @@ See the [commit history](../../commits) — each step is one focused commit.
 
 ## Evaluation
 
-"It seems to work" isn't a metric. `evals.py` measures whether retrieval actually
-surfaces the right document, so changes to chunk size, the embedding model, or
-`top_k` can be judged by a number instead of a vibe.
+"It seems to work" isn't a metric. `evals.py` runs 21 questions against a
+corpus of five multi-page documents in `eval_corpus/`, so changes to chunking,
+the embedding model, or `top_k` can be judged by a number instead of a vibe.
 
 ```bash
 py evals.py
 ```
 
 ```
-RESULTS
-  Hit@1 : 100%   (correct doc ranked first)
-  Hit@3 : 100%   (correct doc in top 3)
-  MRR   : 1.000  (1.0 is perfect)
+RESULTS  (chunk_size=800, overlap=100, top_k=3, 20 chunks)
+  Answer recall : 100%   (answer text present in retrieved chunks)
+  Hit@1         :  95%   (correct doc ranked first)
+  Hit@3         : 100%   (correct doc retrieved at all)
+  MRR           : 0.976  (1.0 is perfect)
 
-  Gate: Hit@1 >= 80% ... PASS
+  Gate: answer recall >= 75% ... PASS (100%)
+  Gate: Hit@1 >= 70% ... PASS (95%)
 ```
 
-The test questions deliberately share almost no keywords with their target
-documents ("How do I bake a loaf?" → `cooking.txt`), so keyword search would
-fail them and only meaning-based retrieval passes.
+**Answer recall is the metric that matters.** Each test case names a phrase
+that must appear in the retrieved chunks — if the answer text never reaches
+the model, no prompt can rescue it. Document-level metrics can look healthy
+while recall quietly degrades (see the sweep below), which is why it leads.
 
-It exits non-zero if Hit@1 drops below 80%, and **runs automatically in CI on
+The questions deliberately avoid the wording of the source — *"Why did my
+bread come out heavy and tight?"* has to find a passage about bulk
+fermentation — so keyword matching fails them and only meaning-based
+retrieval passes.
+
+It exits non-zero if either gate fails, and **runs automatically in CI on
 every push** — so a change that quietly degrades retrieval can't slip through.
 No API key needed; the evals test retrieval, not generation.
+
+### Tuning by measurement, not intuition
+
+`chunk_size`, `overlap` and `top_k` started as guesses. `sweep.py` runs the
+eval suite across a grid of settings so they can be chosen from evidence:
+
+```bash
+py sweep.py            # chunk_size x overlap
+py sweep.py --top-k    # top_k
+```
+
+```
+ chunk  overlap  chunks   recall   Hit@1     MRR  ctx chars
+   300        0      51     81%     95%   0.976        900
+   500        0      28     95%     90%   0.929      1,500
+   800      100      20    100%     95%   0.976      2,400   <- default
+  1200      200      14    100%    100%   1.000      3,600
+  1600      100      10    100%     95%   0.968      4,800
+```
+
+What this actually showed:
+
+- **Small chunks quietly lose answers.** At `chunk_size=300`, answer recall
+  drops to **81%** — roughly one question in five becomes unanswerable because
+  the relevant passage got split across a boundary. Notably, `Hit@1` stays at
+  95%, so document-level metrics look fine while the system silently gets
+  worse. This is exactly why answer recall is the headline metric.
+- **The existing defaults were already the sweet spot.** `chunk_size=800,
+  overlap=100` is the cheapest setting reaching 100% recall. Bigger chunks buy
+  nothing but cost more context.
+- **`top_k=1` is too aggressive** (76% recall); 2 and above hold at 100%. The
+  default of 3 is kept as a safety margin, since 21 test cases isn't enough
+  evidence to shave it to 2.
+
+The honest outcome of this experiment was *"the defaults are right"* — but
+that's now a measured claim rather than a guess, and the sweep is there to
+re-run whenever the chunker or embedding model changes.
 
 ### Unit tests
 
