@@ -1,0 +1,13 @@
+Employee Handbook
+
+Paid time off. New employees receive fifteen days of paid vacation in their first year of service. That allowance increases to twenty days once an employee completes two full years. Vacation accrues at a rate of 1.25 days per month worked. Employees may carry a maximum of five unused days into the following calendar year; anything above that is forfeited on the thirty-first of December. Vacation cannot be taken during the first ninety days of employment.
+
+Requesting leave. All time off must be requested through the HR portal at least two weeks before the intended start date. Requests during the December peak period require written approval from a director rather than a direct manager. Emergency leave may be approved retroactively at the discretion of the head of people operations.
+
+Health coverage. The company covers medical insurance for the employee plus up to two dependents. Dental and vision are offered as optional add-ons deducted from payroll. Coverage begins on the first day of the month following the start date, with no waiting period for employees transferring from an acquired company.
+
+Remote work. Employees may work remotely up to three days per week. Fully remote arrangements require approval from both the reporting manager and the department head, and are reviewed every six months. Anyone working remotely must remain reachable during the core hours of eleven in the morning to four in the afternoon in their registered time zone.
+
+Expenses. Reimbursable expenses must be submitted within sixty days of being incurred, with an itemised receipt attached. Meals during business travel are capped at two thousand rupees per day. Airfare must be booked in economy class unless the flight exceeds eight hours, in which case premium economy is permitted. Personal entertainment, alcohol, and traffic fines are never reimbursable.
+
+Equipment and security. Every employee is issued a laptop that remains company property and must be returned on the final working day. Full disk encryption is mandatory and is verified quarterly. Passwords must be stored in the approved password manager, and multi-factor authentication is required on all internal systems. Reporting a lost or stolen device within twenty-four hours is a condition of the equipment policy.

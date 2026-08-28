@@ -1,0 +1,13 @@
+Running PostgreSQL in Production
+
+Indexing. B-tree indexes are the default and suit equality and range queries on ordered data. GIN indexes are the right choice for containment queries over JSONB documents and for full text search. Every index speeds up reads but slows down writes, because each insert or update must maintain it, so an index nobody queries is pure overhead. Partial indexes, which cover only rows matching a condition, are often far smaller and cheaper than indexing an entire table.
+
+Vacuum and bloat. PostgreSQL does not overwrite rows in place. An update writes a new row version and leaves the old one as a dead tuple, which is why tables grow even when the row count stays flat. Autovacuum reclaims that space in the background. When it cannot keep up, tables become bloated and queries slow down. The usual causes are long-running transactions holding back the visibility horizon, or autovacuum thresholds tuned too conservatively for a write-heavy table.
+
+Connection pooling. Each PostgreSQL connection is a separate operating system process consuming several megabytes, so a few hundred idle connections can exhaust memory. A pooler such as PgBouncer sits between the application and the database and multiplexes many client connections onto a small set of real ones. Transaction pooling mode gives the highest reuse but forbids session-level features like prepared statements and advisory locks.
+
+Replication. Streaming replication ships the write-ahead log from a primary to one or more replicas. In asynchronous mode the primary does not wait for replicas to confirm, which is fast but can lose recent transactions if the primary fails. Synchronous mode waits for acknowledgement, trading latency for durability. Replicas can serve read-only queries, but a long-running read on a replica may conflict with replay and be cancelled.
+
+Backups and recovery. A logical dump with pg_dump is portable across versions and convenient for a single database, but restoring a large one is slow. Physical base backups combined with archived write-ahead log segments enable point-in-time recovery, letting you restore the cluster to any moment before an incident. A backup that has never been restored in a rehearsal should not be treated as a working backup.
+
+Monitoring. The pg_stat_statements extension records normalised query text alongside total and mean execution time, and is the fastest route to finding the queries that actually cost the most. Watch cache hit ratio, replication lag, and the age of the oldest running transaction. A steadily climbing transaction age is an early warning of both bloat and eventual wraparound problems.

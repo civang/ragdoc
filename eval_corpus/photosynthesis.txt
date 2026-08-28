@@ -1,0 +1,13 @@
+Photosynthesis
+
+Overview. Photosynthesis is the process by which plants, algae, and some bacteria convert light energy into chemical energy stored as sugar. The overall reaction consumes six molecules of carbon dioxide and six of water to produce one molecule of glucose and six of oxygen. Nearly all the oxygen in Earth's atmosphere was produced this way.
+
+Chlorophyll and pigments. The reaction is driven by chlorophyll, a green pigment held inside organelles called chloroplasts. Chlorophyll absorbs light strongly in the blue and red parts of the spectrum but reflects green, which is why foliage appears green to us. Accessory pigments such as carotenoids capture wavelengths chlorophyll misses and pass that energy along, and they are what give autumn leaves their orange and yellow colour once chlorophyll breaks down.
+
+The light-dependent reactions. These take place in the thylakoid membranes. Light energy splits water molecules in a step called photolysis, releasing oxygen as a by-product. The energy is captured as two carrier molecules, ATP and NADPH, which power the next stage. This stage cannot proceed in darkness because it depends directly on incoming photons.
+
+The Calvin cycle. Often called the light-independent reactions, the Calvin cycle takes place in the stroma surrounding the thylakoids. It uses the ATP and NADPH produced earlier to fix carbon dioxide into sugar, catalysed by an enzyme called rubisco, widely considered the most abundant protein on Earth. Despite the name, the cycle still depends indirectly on light because it consumes the products of the light reactions.
+
+Limiting factors. The rate of photosynthesis is constrained by whichever input is scarcest: light intensity, carbon dioxide concentration, or temperature. Raising light intensity increases the rate only until another factor becomes limiting, at which point the curve plateaus. Above roughly thirty-five degrees Celsius the rate falls again because the enzymes involved begin to denature.
+
+Adaptations. In hot dry climates, keeping stomata open to admit carbon dioxide costs precious water. C4 plants such as maize and sugarcane concentrate carbon dioxide in specialised cells before fixing it, which reduces wasteful photorespiration. CAM plants including cacti go further and open their stomata only at night, storing carbon as an acid until daylight returns.
