@@ -108,6 +108,17 @@ clean chat UI that adapts to light and dark mode. Answers **stream in
 token-by-token**, and the sources appear immediately (retrieval finishes long
 before the model does).
 
+### Prefer Docker?
+
+```bash
+docker build -t ragdoc .
+docker run --rm -p 5000:5000 -e ANTHROPIC_API_KEY -v "$PWD/docs:/docs" ragdoc
+```
+
+Mount the folder you want to chat with at `/docs`, then open
+**http://localhost:5000**. The embedding model is baked into the image, so the
+container starts instantly and needs no download.
+
 > **Tip:** To test cheaply while experimenting, set `MODEL = "claude-haiku-4-5"` in `ask.py`.
 
 The embedding model runs **locally** (via [model2vec](https://github.com/MinishLab/model2vec)) — no second API key, and it works offline after a one-time ~30 MB download.

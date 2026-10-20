@@ -401,7 +401,11 @@ def main() -> None:
     print("  ragdoc is running at  http://localhost:5000")
     print("  Press Ctrl+C to stop.\n")
 
-    app.run(host="127.0.0.1", port=5000, debug=False)
+    # Bind to localhost by default. Inside a container the port is only
+    # reachable from outside if we listen on all interfaces, so the
+    # Dockerfile sets RAGDOC_HOST=0.0.0.0.
+    host = os.environ.get("RAGDOC_HOST", "127.0.0.1")
+    app.run(host=host, port=5000, debug=False)
 
 
 if __name__ == "__main__":
