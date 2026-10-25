@@ -33,7 +33,7 @@ CACHE_DIR = ".ragdoc_cache"
 # Carrying the source lets answers say WHICH document a passage came from,
 # which matters once we index more than one file.
 
-SUPPORTED_EXTS = {".pdf", ".txt", ".md"}
+SUPPORTED_EXTS = {".pdf", ".docx", ".txt", ".md"}
 _CACHE_VERSION = 3  # bumped when the cache format changes
 
 
@@ -88,7 +88,7 @@ def build_index(path: str, use_cache: bool = True) -> tuple[list[dict], np.ndarr
     """Build a search index from a single document OR a whole folder.
 
     If `path` is a file, index it. If it's a folder, index every supported
-    file inside it (.pdf/.txt/.md) into ONE combined index, so a question can
+    file inside it (.pdf/.docx/.txt/.md) into ONE combined index, so a question can
     be answered from any of the documents.
 
     Returns (chunks, vectors): row i of `vectors` is the embedding of
@@ -97,7 +97,7 @@ def build_index(path: str, use_cache: bool = True) -> tuple[list[dict], np.ndarr
     if os.path.isdir(path):
         files = _find_documents(path)
         if not files:
-            raise ValueError(f"No supported documents (.pdf/.txt/.md) found in: {path}")
+            raise ValueError(f"No supported documents (.pdf/.docx/.txt/.md) found in: {path}")
         print(f"Indexing {len(files)} documents from {path}/")
 
         all_chunks: list[dict] = []

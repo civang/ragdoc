@@ -18,7 +18,8 @@ import sys
 
 
 def load_text(path: str) -> str:
-    """Read a file's text. Supports .pdf (via pypdf) and any text file."""
+    """Read a file's text. Supports .pdf (via pypdf), .docx (via python-docx)
+    and any text file."""
     ext = os.path.splitext(path)[1].lower()
 
     if ext == ".pdf":
@@ -30,6 +31,21 @@ def load_text(path: str) -> str:
         reader = PdfReader(path)
         # Join the text of every page with blank lines between them.
         return "\n\n".join((page.extract_text() or "") for page in reader.pages)
+
+    if ext == ".docx":
+        try:
+            from docx import Document
+        except ImportError:
+            print("Word support needs python-docx. Run: py -m pip install -r requirements.txt")
+            sys.exit(1)
+        doc = Document(path)
+        # Paragraphs first, then table cells, so text inside tables (common in
+        # policies and handbooks) is searchable too.
+        parts = [p.text for p in doc.paragraphs]
+        for table in doc.tables:
+            for row in table.rows:
+                parts.append(" | ".join(cell.text for cell in row.cells))
+        return "\n\n".join(part for part in parts if part.strip())
 
     # Real-world folders contain files saved in older encodings. Try UTF-8
     # first, then fall back to latin-1, which maps every byte to a character

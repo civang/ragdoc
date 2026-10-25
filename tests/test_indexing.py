@@ -77,6 +77,33 @@ def test_hidden_directories_are_skipped(tmp_path):
     assert {c["source"] for c in chunks} == {"real.txt"}
 
 
+def test_docx_paragraphs_and_tables_are_read(tmp_path):
+    docx = pytest.importorskip("docx")
+    doc = docx.Document()
+    doc.add_paragraph("Glaciers shape the landscape.")
+    table = doc.add_table(rows=1, cols=2)
+    table.rows[0].cells[0].text = "Leave"
+    table.rows[0].cells[1].text = "15 days"
+    path = tmp_path / "policy.docx"
+    doc.save(path)
+
+    text = load_text(str(path))
+
+    assert "Glaciers shape the landscape." in text
+    assert "Leave | 15 days" in text
+
+
+def test_docx_files_in_a_folder_are_indexed(docs):
+    docx = pytest.importorskip("docx")
+    doc = docx.Document()
+    doc.add_paragraph("Deserts receive very little rain.")
+    doc.save(docs / "notes.docx")
+
+    chunks, _vectors = build_index(str(docs), use_cache=False)
+
+    assert "notes.docx" in {c["source"] for c in chunks}
+
+
 # --- resilience ------------------------------------------------------------
 
 def test_one_unreadable_file_does_not_break_the_index(docs):

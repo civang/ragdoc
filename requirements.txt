@@ -1,5 +1,6 @@
 anthropic
 pypdf
+python-docx
 model2vec
 numpy
 flask
