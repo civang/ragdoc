@@ -42,3 +42,31 @@ jobs:
         # Exits non-zero if Hit@1 drops below the 80% gate in evals.py,
         # which fails the build.
         run: python evals.py
+
+  docker:
+    # Build the image and smoke-test it, so a broken Dockerfile fails CI
+    # instead of failing for whoever tries it first.
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Build the image
+        run: docker build -t ragdoc .
+
+      - name: Smoke-test the web UI
+        # A dummy key is enough: the server only calls the API when a
+        # question is asked, and the smoke test only loads the page.
+        run: |
+          docker run -d --name ragdoc -p 5000:5000 \
+            -e ANTHROPIC_API_KEY=dummy \
+            -v "$PWD/eval_corpus:/docs:ro" ragdoc
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:5000/ > /dev/null; then
+              echo "ragdoc is up"; exit 0
+            fi
+            sleep 1
+          done
+          docker logs ragdoc
+          exit 1
