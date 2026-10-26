@@ -82,7 +82,8 @@ to earlier answers. History is capped to recent turns to bound prompt size.
 py -m pip install -r requirements.txt
 
 # 2. Set your Anthropic API key (get one at console.anthropic.com)
-$env:ANTHROPIC_API_KEY = "sk-ant-your-key-here"
+$env:ANTHROPIC_API_KEY = "sk-ant-your-key-here"     # Windows (PowerShell)
+export ANTHROPIC_API_KEY="sk-ant-your-key-here"     # macOS / Linux
 
 # 3. Chat with a document...
 py ask.py path/to/your/document.pdf
@@ -90,6 +91,9 @@ py ask.py path/to/your/document.pdf
 # ...or with a whole folder of them at once
 py ask.py path/to/your/docs/
 ```
+
+> **macOS / Linux:** the commands use the Windows `py` launcher. Replace `py`
+> with `python3` (e.g. `python3 ask.py path/to/your/docs/`).
 
 Supports `.pdf`, `.txt`, and `.md`. Type `exit` to quit.
 
