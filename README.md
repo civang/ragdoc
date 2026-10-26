@@ -95,7 +95,7 @@ py ask.py path/to/your/docs/
 > **macOS / Linux:** the commands use the Windows `py` launcher. Replace `py`
 > with `python3` (e.g. `python3 ask.py path/to/your/docs/`).
 
-Supports `.pdf`, `.txt`, and `.md`. Type `exit` to quit.
+Supports `.pdf`, `.docx`, `.txt`, and `.md`. Type `exit` to quit.
 
 Point it at a folder and every supported file is indexed into one searchable
 collection — ask a question and ragdoc finds the right passage *and tells you
